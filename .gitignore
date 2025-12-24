@@ -1,4 +1,4 @@
-Massive\API_KEYS
+
 
 # Python virtual environments
 my_venv/
@@ -30,3 +30,4 @@ __pycache__/
 data/
 checkpoints/
 logs/
+Massive/API_KEYS
