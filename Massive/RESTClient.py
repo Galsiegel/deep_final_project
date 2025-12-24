@@ -1,7 +1,7 @@
 # Given we will fetch big amounts of data, decide how to save the results.
 # Dont forget to set limit
 
-from tools.api_utils import load_api_key
+from .tools.api_utils import load_api_key
 
 # Load API key from Massive\API_KEYS file
 MASSIVE_API_KEY = load_api_key()
