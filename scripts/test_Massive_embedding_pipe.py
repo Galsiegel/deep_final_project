@@ -125,7 +125,11 @@ for article in loaded_data['articles']:
 
 print(f"[+] Loaded {len(texts_for_embedding)} articles from JSON")
 print(f"[+] Prepared {len(texts_for_embedding)} texts for FinBERT embedding")
-print(f"[+] Example text length: {len(texts_for_embedding[0])} characters")
+if texts_for_embedding:
+    print(f"[+] Example text length: {len(texts_for_embedding[0])} characters")
+else:
+    print("[!] Warning: No texts prepared for embedding!")
+    sys.exit(1)
 
 print("\n" + "="*60)
 print("READY FOR FINBERT PROCESSING")
@@ -182,5 +186,8 @@ print("SUMMARY")
 print("="*60)
 print(f"Articles processed: {len(texts_for_embedding)}")
 print(f"Embeddings generated: {len(embeddings)}")
-print(f"Embedding dimension: {embeddings[0].shape[0]}")
+if embeddings:
+    print(f"Embedding dimension: {embeddings[0].shape[0]}")
+else:
+    print("[!] Warning: No embeddings generated!")
 print("\nDone!")
