@@ -1,0 +1,32 @@
+Massive\API_KEYS
+
+# Python virtual environments
+my_venv/
+venv/
+env/
+.venv/
+
+# Conda environments (if created locally)
+.conda/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Model checkpoints and data
+*.pth
+*.pt
+*.ckpt
+*.h5
+data/
+checkpoints/
+logs/
