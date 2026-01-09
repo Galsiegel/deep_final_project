@@ -1,187 +1,261 @@
 <!-- 715514cb-ab53-4a55-8191-e33d56afef99 a8326a0e-093b-40b8-92a9-d09d0a6d4483 -->
-# Stock Prediction Network Plan
+# Phase 1: GRU Baseline Model
 
 ## Overview
 
-Implement a modular stock prediction system with GRU architecture supporting:
+Build separate GRU models for:
 
-- Dual prediction modes: regression (price) and classification (direction)
-- Baseline training on stock data only (OHLCV)
-- Future embedding integration via two strategies: simple concatenation and separate branches
+1. **Regression:** Predict next-day closing price
+2. **Classification:** Predict direction (5-class: Large Down, Small Down, Neutral, Small Up, Large Up)
 
-## Architecture Design
+Models train on stock OHLCV data only (no news embeddings yet).
 
-### Core Model Components
+## Architecture
 
-```
-Input: [Date, OHLCV, Volume] → Lookback Window → GRU → Prediction Head
-```
-
-**Model Structure:**
-
-- **Input Layer**: Processes sequences of stock features (lookback window)
-- **GRU Backbone**: 1-3 layer GRU with configurable hidden size
-- **Dual Output Heads**: 
-  - Regression head: predicts next-day closing price
-  - Classification head: predicts direction (up/down/neutral)
-
-**Key Design Decisions:**
-
-- Use GRU over LSTM for efficiency
-- Modular architecture allowing easy embedding integration later
-- Separate prediction heads for easy task comparison
-
-### Data Pipeline
-
-**Files to use:**
-
-- `data/2017_2019/*.csv` - 198 stock tickers with OHLCV data (2017-2019)
-- Format: Date, Open, High, Low, Close, Volume, Dividends, Stock Splits
-
-**Preprocessing:**
-
-1. Load and normalize OHLCV features (min-max or z-score per ticker)
-2. Create sliding windows (lookback_window days)
-3. Generate targets:
-
-   - Regression: next day's closing price (raw value)
-   - Classification: price movement direction with multiple granularity options:
-     - 3-class: Down (<0%), Neutral (0%), Up (>0%)
-     - 5-class: Large Down (<-2%), Small Down (-2% to -0.5%), Neutral (-0.5% to +0.5%), Small Up (+0.5% to +2%), Large Up (>+2%)
-     - 7-class: Very Large Down (<-3%), Large Down (-3% to -1.5%), Small Down (-1.5% to -0.5%), Neutral (-0.5% to +0.5%), Small Up (+0.5% to +1.5%), Large Up (+1.5% to +3%), Very Large Up (>+3%)
-
-4. Train/val/test split with strict temporal ordering to prevent data leakage:
-
-   - Temporal split with gaps: Train → Gap (lookback days) → Val → Gap → Test
-   - Example: Train (2017-01 to 2018-06), Gap (20 days), Val (2018-07 to 2018-12), Gap (20 days), Test (2019-01 to 2019-12)
-   - No shuffling or random selection - maintains chronological order
-   - Same date ranges applied across all tickers
-
-## Implementation Phases
-
-### Phase 0: Naive Baselines (Essential Reference Point)
-
-Before building neural networks, establish simple baseline predictions to ensure our models provide real value.
-
-**Naive methods to implement:**
-
-1. **Persistence (Last Value)**: 
-
-   - Prediction = yesterday's closing price
-   - Simplest baseline - assumes no change
-
-2. **Moving Average (5-day)**:
-
-   - Prediction = mean of last 5 days' closing prices
-   - Smooths out short-term fluctuations
-
-3. **Linear Trend Extrapolation**:
-
-   - Fit linear regression to last 5-10 days
-   - Extrapolate to predict next day
-
-4. **Random Classifier** (for classification only):
-
-   - Predict each class with equal probability
-   - Establishes chance-level performance
-
-**Implementation:**
-
-- Create `scripts/naive_baselines.py` - Compute all naive predictions
-- Save results to `results/naive_baselines.json` for comparison
-- Must use same train/val/test splits as neural models
-- Compute all metrics (MSE, MAE, Accuracy, F1) for fair comparison
-
-**Why this matters:** If GRU doesn't beat persistence baseline, the model isn't learning useful patterns!
-
-### Phase 1: Baseline Model (Stock Only)
-
-**Create:**
-
-- `models/stock_predictor.py` - Main model architecture
-- `models/data_loader.py` - Dataset class and data loading utilities
-- `models/trainer.py` - Training loop, validation, and logging
-- `models/config.py` - Hyperparameters and configuration
-- `scripts/train_baseline.py` - Training script for baseline model
-
-**Key Features:**
-
-- Configurable GRU layers (1-3 layers, hidden_size=64/128/256)
-- Dropout for regularization
-- Both regression and classification training modes
-- Checkpoint saving and loading
-- Metrics: MSE/MAE for regression, Accuracy/F1 for classification
-
-**Hyperparameters to tune:**
-
-- Lookback window: 5, 10, 20, 30 days
-- Hidden size: 64, 128, 256
-- Number of GRU layers: 1, 2, 3
-- Dropout: 0.1, 0.2, 0.3
-- Learning rate: 1e-3, 1e-4
-- Batch size: 32, 64, 128
-
-### Phase 2: Embedding Integration (Future)
-
-**Two integration strategies to implement:**
-
-**(a) Simple Concatenation:**
+### Shared Base Architecture
 
 ```
-Input: [OHLCV + NewsEmbedding] → GRU → Prediction
+Input: [batch, seq_len=20, features=5]  # OHLCV
+  ↓
+GRU(input_size=5, hidden_size=128, num_layers=2, dropout=0.2)
+  ↓
+Take last hidden state: [batch, 128]
+  ↓
+Linear(128 → 64) + ReLU + Dropout(0.3)
+  ↓
+[batch, 64] → Task-specific head
 ```
 
-- Minimal code changes
-- News embeddings concatenated with stock features at each timestep
+### Task-Specific Heads
 
-**(b) Separate Branches:**
+**Regression Model:**
 
 ```
-Stock: [OHLCV] → GRU → stock_features
-News: [Embeddings] → Dense → news_features
-Combined: [stock_features, news_features] → Prediction
+[batch, 64] → Linear(64 → 1) → [batch, 1]
+Output: Normalized next-day close price
+Loss: MSE
 ```
 
-- Stock branch can reuse baseline model weights
-- News branch processes embeddings separately
-- Fusion layer combines both modalities
+**Classification Model:**
 
-**Files to modify/create:**
+```
+[batch, 64] → Linear(64 → 5) → [batch, 5]
+Output: Logits for 5 classes
+Loss: CrossEntropyLoss
+```
 
-- Extend `models/stock_predictor.py` with embedding-aware models
-- Update `models/data_loader.py` to load news embeddings
-- Create `scripts/train_enhanced.py` for training with embeddings
+## Implementation Details
+
+### Data Processing
+
+**Features:** OHLCV (Open, High, Low, Close, Volume)
+
+**Normalization:** Per-ticker StandardScaler
+
+- Each ticker normalized independently
+- Fit on train set only, transform val/test
+- Store scaler for each ticker for denormalization
+
+**Sequence Creation:**
+
+- Lookback window: 20 days
+- Stride: 1 (maximum overlap for training data)
+- Target: Next day's close price (t+1)
+- No sequences crossing train/val/test boundaries
+
+**Data Split:** Use same temporal splits as Phase 0
+
+- Train: up to 2018-06-30
+- Gap: 21 days
+- Val: 2018-07-21 to 2018-12-31
+- Gap: 21 days
+- Test: from 2019-01-21
+
+### Training Configuration
+
+**Fixed Hyperparameters:**
+
+```yaml
+model:
+  type: gru
+  hidden_size: 128
+  num_layers: 2
+  dropout_gru: 0.2
+  dropout_fc: 0.3
+  fc_hidden_size: 64
+
+data:
+  lookback: 20
+  features: [open, high, low, close, volume]
+  normalization: per_ticker
+  stride: 1
+  batch_size: 64
+
+training:
+  epochs: 100
+  learning_rate: 0.001
+  optimizer: adam
+  grad_clip_norm: 1.0
+  
+  scheduler:
+    type: reduce_on_plateau
+    mode: min
+    factor: 0.5
+    patience: 10
+    min_lr: 1.0e-6
+  
+  early_stopping:
+    patience: 15
+    monitor: val_loss
+
+regression:
+  loss: mse
+  
+classification:
+  loss: cross_entropy
+  num_classes: 5
+  class_thresholds: [-2.0, -0.5, 0.5, 2.0]  # % returns
+```
+
+### Checkpointing Strategy
+
+Save 3 types per model:
+
+1. **best_val_loss.pth** - Lowest validation loss
+2. **best_val_metric.pth** - Best task-specific metric:
+
+   - Regression: Best directional accuracy
+   - Classification: Best accuracy
+
+3. **last.pth** - Latest epoch (for resuming training)
+
+Each checkpoint includes:
+
+- Model state_dict
+- Optimizer state_dict
+- Scheduler state_dict
+- Epoch number
+- Metrics history
+- Scalers (for denormalization)
+
+## Files to Create
+
+### Core Model Files
+
+```
+models/
+  ├── gru_model.py              # Base GRU encoder
+  ├── regression_model.py       # Regression wrapper
+  ├── classification_model.py   # Classification wrapper
+  ├── dataset.py                # PyTorch Dataset
+  └── trainer.py                # Training engine
+```
+
+### Scripts
+
+```
+scripts/
+  ├── train_regression.py       # Train regression model
+  ├── train_classification.py   # Train classification model
+  └── evaluate_model.py         # Evaluate on test set
+```
+
+### Configuration
+
+```
+configs/
+  ├── base.yaml                 # Shared config
+  ├── regression.yaml           # Regression-specific
+  └── classification.yaml       # Classification-specific
+```
+
+## Metrics & Logging
+
+### TensorBoard Logging
+
+**Training metrics (per epoch):**
+
+- Train loss, val loss
+- Learning rate
+- Gradient norms
+
+**Regression metrics:**
+
+- MSE, MAE, RMSE (normalized)
+- MSE, MAE, RMSE (denormalized, actual $)
+- Directional accuracy
+- Sample predictions vs actual (plot)
+
+**Classification metrics:**
+
+- Accuracy, Precision, Recall, F1 (weighted)
+- Per-class accuracy
+- Confusion matrix (image)
+
+### Output Structure
+
+```
+results/phase1_runs/
+  └── run_YYYYMMDD_HHMMSS_regression/  # or _classification
+      ├── config.yaml              # Full configuration
+      ├── model_summary.txt        # Architecture details
+      ├── scalers/                 # Per-ticker StandardScalers
+      │   ├── AAPL_scaler.pkl
+      │   ├── GOOG_scaler.pkl
+      │   └── ...
+      ├── checkpoints/
+      │   ├── best_val_loss.pth
+      │   ├── best_val_metric.pth
+      │   └── last.pth
+      ├── tensorboard/             # TensorBoard logs
+      │   └── events.out.tfevents...
+      ├── training_log.csv         # Epoch-by-epoch metrics
+      └── final_results.json       # Test set evaluation
+```
 
 ## Evaluation & Comparison
 
-**Metrics to track:**
-
-- **Regression**: MSE, MAE, RMSE, directional accuracy
-- **Classification**: Accuracy, Precision, Recall, F1-score
-- **Financial**: Sharpe ratio (if implementing trading strategy)
-
-**Comparison matrix:**
+After training both models, compare against Phase 0 naive baselines:
 
 ```
-Model                    | MSE    | MAE   | RMSE  | Direction Acc | F1 (5-class)
--------------------------|--------|-------|-------|---------------|-------------
-Persistence (t-1)        |   ?    |   ?   |   ?   |      ?        | ?
-Moving Avg (5-day)       |   ?    |   ?   |   ?   |      ?        | ?
-Linear Trend             |   ?    |   ?   |   ?   |      ?        | ?
-Random Classifier        |   -    |   -   |   -   |      ?        | ?
--------------------------|--------|-------|-------|---------------|-------------
-GRU Baseline (stock)     |   ?    |   ?   |   ?   |      ?        | ?
-GRU Enhanced-Concat (a)  |   ?    |   ?   |   ?   |      ?        | ?
-GRU Enhanced-Branch (b)  |   ?    |   ?   |   ?   |      ?        | ?
+Method                          MSE      MAE     RMSE    Dir Acc    F1
+---------------------------------------------------------------------
+Persistence (Phase 0)          1.13     0.83    1.06     48.3%      -
+Moving Avg (Phase 0)           1.77     1.06    1.33     50.4%      -
+Linear Trend (Phase 0)         1.29     0.89    1.14     53.2%      -
+---------------------------------------------------------------------
+GRU Regression (Phase 1)        ?        ?       ?        ?         -
+GRU Classification (Phase 1)    -        -       -        -         ?
 ```
 
-**Goal:** Neural models must significantly outperform naive baselines to justify complexity.
+**Success Criteria:**
 
-## Key Files
+- Regression MSE < 1.0 (beat Persistence)
+- Directional Accuracy > 55% (significantly beat baselines)
+- Classification F1 > 0.50 (beat random)
 
-- `models/stock_predictor.py` - Neural network architectures
-- `models/data_loader.py` - Data loading and preprocessing
-- `models/trainer.py` - Training and evaluation logic
-- `models/config.py` - Configuration management
-- `scripts/train_baseline.py` - Baseline training script
-- `results/` - Output directory for checkpoints and logs
+## Implementation Steps
+
+1. Create base GRU encoder (`gru_model.py`)
+2. Implement PyTorch Dataset for sequences (`dataset.py`)
+3. Build regression model wrapper (`regression_model.py`)
+4. Build classification model wrapper (`classification_model.py`)
+5. Implement trainer with TensorBoard logging (`trainer.py`)
+6. Create configuration system (`configs/*.yaml`)
+7. Write training scripts (`scripts/train_*.py`)
+8. Write evaluation script (`scripts/evaluate_model.py`)
+9. Train regression model
+10. Train classification model
+11. Evaluate both on test set
+12. Compare against Phase 0 baselines
+
+### To-dos
+
+- [ ] Create base GRU encoder module
+- [ ] Implement PyTorch Dataset for sequences
+- [ ] Build regression model wrapper
+- [ ] Build classification model wrapper
+- [ ] Implement training loop with TensorBoard
+- [ ] Create YAML configuration files
+- [ ] Write training scripts
+- [ ] Write evaluation script

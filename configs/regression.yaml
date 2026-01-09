@@ -1,0 +1,24 @@
+# Regression-specific configuration
+# Inherits from base.yaml
+
+task: regression
+
+regression:
+  loss: mse                 # Mean Squared Error
+  
+  # Metrics to track
+  metrics:
+    - mse
+    - mae
+    - rmse
+    - directional_accuracy
+  
+  # Which metric to use for best_val_metric checkpoint
+  best_metric: directional_accuracy
+  best_metric_mode: max     # Higher is better for directional accuracy
+
+# Output
+output:
+  name: next_day_close      # What we're predicting
+  size: 1                   # Single value (price)
+

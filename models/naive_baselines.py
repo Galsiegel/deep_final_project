@@ -202,9 +202,11 @@ def calculate_classification_from_regression(
     
     # Convert to classes
     if '3class' in thresholds:
+        # Use a small epsilon for neutral class around zero
+        epsilon = 0.01  # +/- 0.01%
         df['pred_3class'] = pd.cut(
             df['predicted_return'],
-            bins=[-np.inf, 0, 0, np.inf],
+            bins=[-np.inf, -epsilon, epsilon, np.inf],
             labels=[0, 1, 2],
             include_lowest=True
         )

@@ -24,3 +24,16 @@ This file breaks the assignment into steps so we can work more efficiently and i
 2. Train it on raw stock-market data only (no news).
 3. Optimize it as much as possible and present results.
 4. Retrain the model using the enhanced dataset (stock + embeddings).
+
+
+HyperParameters in model:
+
+Embedding:
+   Output vector size
+   how many articles per day
+   how to treat days without news
+
+stock:
+   Lookback window size
+   how to treat days market not active.
+   

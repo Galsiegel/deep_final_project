@@ -1,0 +1,56 @@
+# Base configuration for GRU models
+# Shared settings between regression and classification
+
+model:
+  type: gru
+  hidden_size: 128
+  num_layers: 2
+  dropout_gru: 0.2      # Dropout between GRU layers
+  dropout_fc: 0.3       # Dropout in fully connected layers
+  fc_hidden_size: 64    # Hidden size of FC layer before output
+
+data:
+  lookback: 10          # Number of days to look back
+  features:             # Input features (OHLCV)
+    - open
+    - high
+    - low
+    - close
+    - volume
+  normalization: per_ticker  # Normalize each ticker independently
+  volume_transform: log      # Apply log transform to volume before normalization
+  stride: 1                  # Sliding window stride
+  data_dir: data/2017_2019
+  
+  # Temporal split dates (same as Phase 0)
+  train_end: "2018-06-30"
+  val_start: "2018-07-21"
+  val_end: "2018-12-31"
+  test_start: "2019-01-21"
+
+training:
+  batch_size: 64
+  epochs: 100
+  learning_rate: 0.001
+  optimizer: adam
+  grad_clip_norm: 1.0        # Gradient clipping to prevent exploding gradients
+  
+  # Learning rate scheduler
+  scheduler:
+    type: reduce_on_plateau
+    mode: min                # Minimize validation loss
+    factor: 0.5              # Reduce LR by half
+    patience: 10             # Wait 10 epochs before reducing
+    min_lr: 1.0e-6          # Don't go below this
+  
+  # Early stopping
+  early_stopping:
+    patience: 15             # Stop after 15 epochs without improvement
+    monitor: val_loss        # Metric to monitor
+
+# Random seed for reproducibility
+seed: 42
+
+# Device
+device: cuda  # Use 'cuda' if available, else 'cpu'
+
