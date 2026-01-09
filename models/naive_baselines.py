@@ -81,14 +81,16 @@ class LinearTrendPredictor(NaivePredictor):
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """Predict tomorrow by extrapolating linear trend."""
         df = df.copy()
-        predictions = []
+        
+        # Create a Series to store predictions with proper index alignment
+        predictions = pd.Series(index=df.index, dtype=float)
         
         # Group by ticker to handle each stock separately
         for ticker, group in df.groupby('ticker'):
-            ticker_predictions = []
             closes = group['close'].values
+            group_indices = group.index
             
-            for i in range(len(closes)):
+            for i, idx in enumerate(group_indices):
                 if i < self.window:
                     # Not enough history - use persistence
                     pred = closes[i-1] if i > 0 else closes[i]
@@ -114,9 +116,8 @@ class LinearTrendPredictor(NaivePredictor):
                         # Fall back to persistence if fitting fails
                         pred = closes[i-1]
                 
-                ticker_predictions.append(pred)
-            
-            predictions.extend(ticker_predictions)
+                # Assign prediction to the correct index
+                predictions.loc[idx] = pred
         
         df['prediction'] = predictions
         return df

@@ -144,14 +144,20 @@ def main(args):
     )
     
     print("\n4. Creating model...")
+    # For regression, we add day i's opening price as an extra feature
+    # So input_size = len(features) + 1
+    input_size = len(config['data']['features']) + 1
+    
     model = StockRegressionModel(
-        input_size=len(config['data']['features']),
+        input_size=input_size,
         hidden_size=config['model']['hidden_size'],
         num_layers=config['model']['num_layers'],
         dropout_gru=config['model']['dropout_gru'],
         dropout_fc=config['model']['dropout_fc'],
         fc_hidden_size=config['model']['fc_hidden_size']
     )
+    
+    print(f"  Input features: {len(config['data']['features'])} base + 1 (day i's open) = {input_size}")
     
     model = model.to(device)
     print(f"  Model parameters: {model.get_num_parameters():,}")

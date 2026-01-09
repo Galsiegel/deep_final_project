@@ -92,13 +92,26 @@ class StockSequenceDataset(Dataset):
             max_idx = len(ticker_data) - 1 if task == 'classification' else len(ticker_data)
             
             for i in range(lookback, max_idx, stride):
-                # Get sequence of historical data
-                seq = ticker_data[features].iloc[i-lookback:i].values
-                
                 # Get target
                 if task == 'regression':
-                    # Predict normalized next-day close price
+                    # Predict day i's close from:
+                    # - Days [i-lookback, i-1] with full OHLCV (lookback days of history)
+                    # - Day i's opening price (as an extra feature on each timestep)
+                    
+                    # Get full historical sequence
+                    seq = ticker_data[features].iloc[i-lookback:i].values  # [lookback, num_features]
+                    
+                    # Add day i's opening price as an additional feature to each timestep
+                    # Shape: [lookback, num_features] -> [lookback, num_features + 1]
+                    day_i_open = ticker_data['open'].iloc[i]
+                    day_i_open_column = np.full((lookback, 1), day_i_open)
+                    seq = np.hstack([seq, day_i_open_column])
+                    
                     target = ticker_data['close'].iloc[i]
+                    
+                elif task == 'classification':
+                    # Get sequence of historical data
+                    seq = ticker_data[features].iloc[i-lookback:i].values
                     
                 elif task == 'classification':
                     # Calculate NEXT-DAY % return and convert to class
