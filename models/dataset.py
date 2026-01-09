@@ -88,7 +88,10 @@ class StockSequenceDataset(Dataset):
                 ticker_data[features] = self.scalers[ticker].transform(ticker_data[features])
             
             # Create sequences
-            for i in range(lookback, len(ticker_data), stride):
+            # For classification, need i+1 to exist for next-day target
+            max_idx = len(ticker_data) - 1 if task == 'classification' else len(ticker_data)
+            
+            for i in range(lookback, max_idx, stride):
                 # Get sequence of historical data
                 seq = ticker_data[features].iloc[i-lookback:i].values
                 
@@ -98,9 +101,11 @@ class StockSequenceDataset(Dataset):
                     target = ticker_data['close'].iloc[i]
                     
                 elif task == 'classification':
-                    # Calculate % return and convert to class
-                    prev_close = ticker_data['close'].iloc[i-1]  # Already normalized
-                    next_close = ticker_data['close'].iloc[i]     # Already normalized
+                    # Calculate NEXT-DAY % return and convert to class
+                    # Today's close (end of input sequence)
+                    today_close = ticker_data['close'].iloc[i]  # Already normalized
+                    # Tomorrow's close (what we want to predict)
+                    tomorrow_close = ticker_data['close'].iloc[i+1]  # Already normalized
                     
                     # Denormalize to calculate actual % return
                     # Get the close price index
@@ -108,10 +113,11 @@ class StockSequenceDataset(Dataset):
                     scaler = self.scalers[ticker]
                     
                     # Denormalize using inverse transform
-                    prev_close_denorm = scaler.inverse_transform([[0]*close_idx + [prev_close] + [0]*(len(features)-close_idx-1)])[0][close_idx]
-                    next_close_denorm = scaler.inverse_transform([[0]*close_idx + [next_close] + [0]*(len(features)-close_idx-1)])[0][close_idx]
+                    today_close_denorm = scaler.inverse_transform([[0]*close_idx + [today_close] + [0]*(len(features)-close_idx-1)])[0][close_idx]
+                    tomorrow_close_denorm = scaler.inverse_transform([[0]*close_idx + [tomorrow_close] + [0]*(len(features)-close_idx-1)])[0][close_idx]
                     
-                    pct_return = ((next_close_denorm - prev_close_denorm) / prev_close_denorm) * 100
+                    # Calculate next-day return
+                    pct_return = ((tomorrow_close_denorm - today_close_denorm) / today_close_denorm) * 100
                     
                     # Convert to class
                     target = self._return_to_class(pct_return)

@@ -105,7 +105,7 @@ class Trainer:
             if self.task == 'regression':
                 loss = self.criterion(outputs, y)
             else:  # classification
-                outputs = outputs.squeeze()
+                # CrossEntropyLoss expects [batch_size, num_classes] and [batch_size]
                 loss = self.criterion(outputs, y)
             
             # Backward pass
@@ -169,7 +169,7 @@ class Trainer:
                 if self.task == 'regression':
                     loss = self.criterion(outputs, y)
                 else:  # classification
-                    outputs = outputs.squeeze()
+                    # CrossEntropyLoss expects [batch_size, num_classes] and [batch_size]
                     loss = self.criterion(outputs, y)
                 
                 total_loss += loss.item()
@@ -313,9 +313,6 @@ class Trainer:
                 print(f"\nEarly stopping triggered after {self.current_epoch} epochs")
                 break
         
-        # Save final training history
-        self._save_training_history()
-        
         print("\nTraining complete!")
         print(f"Best val_loss: {self.best_val_loss:.4f}")
         print(f"Best {self.best_metric}: {self.best_val_metric:.4f}")
@@ -415,28 +412,6 @@ class Trainer:
         
         return False
     
-    def _save_training_history(self):
-        """Save training history to JSON."""
-        history_file = self.run_dir / 'training_history.json'
-        
-        # Convert numpy types to Python types for JSON serialization
-        def convert_to_python_types(obj):
-            if isinstance(obj, np.floating):
-                return float(obj)
-            elif isinstance(obj, np.integer):
-                return int(obj)
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()
-            elif isinstance(obj, dict):
-                return {k: convert_to_python_types(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_to_python_types(item) for item in obj]
-            return obj
-        
-        history_serializable = convert_to_python_types(self.training_history)
-        
-        with open(history_file, 'w') as f:
-            json.dump(history_serializable, f, indent=2)
 
 
 if __name__ == "__main__":
