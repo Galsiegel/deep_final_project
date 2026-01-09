@@ -1,0 +1,19 @@
+{
+    // Disable automatic Python environment activation
+    "python.terminal.activateEnvironment": false,
+    
+    // Use conda environment instead of venv
+    "python.defaultInterpreterPath": "${env:CONDA_PREFIX}/python.exe",
+    
+    // Or specify conda environment directly (uncomment and update path after creating env)
+    // "python.defaultInterpreterPath": "${env:USERPROFILE}/anaconda3/envs/deep_final_project/python.exe",
+    
+    // Disable auto-detection of virtual environments
+    "python.venvPath": "",
+    
+    // Python settings
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic"
+}
+
+

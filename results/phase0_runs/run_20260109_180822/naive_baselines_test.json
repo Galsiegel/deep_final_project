@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-09T18:08:23.112302",
+    "split": "test",
+    "data_dir": "data/2017_2019",
+    "tickers": "AAPL",
+    "num_tickers": 1,
+    "num_records": 238,
+    "lookback_days": 20,
+    "split_dates": {
+      "train_end": "2018-06-30",
+      "val_start": "2018-07-21",
+      "val_end": "2018-12-31",
+      "test_start": "2019-01-21"
+    }
+  },
+  "results": {
+    "Persistence (t-1)": {
+      "type": "regression",
+      "metrics": {
+        "mse": 1.1282526425755475,
+        "mae": 0.8290710934137894,
+        "rmse": 1.0621923755024545,
+        "mape": 1.656425560165695,
+        "directional_accuracy": 0.4830508474576271
+      }
+    },
+    "Moving Average (5-day)": {
+      "type": "regression",
+      "metrics": {
+        "mse": 1.7705452673429032,
+        "mae": 1.0571972658405195,
+        "rmse": 1.3306183778014278,
+        "mape": 2.1080634732203873,
+        "directional_accuracy": 0.5042372881355932
+      }
+    },
+    "Linear Trend (5-day)": {
+      "type": "regression",
+      "metrics": {
+        "mse": 1.293447603214005,
+        "mae": 0.8919882005780052,
+        "rmse": 1.1372983791485878,
+        "mape": 1.780506280781856,
+        "directional_accuracy": 0.5316455696202531
+      }
+    }
+  }
+}

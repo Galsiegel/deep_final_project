@@ -1,0 +1,9 @@
+{
+  "data_dir": "data/2017_2019",
+  "split": "test",
+  "limit": null,
+  "tickers": "AAPL",
+  "lookback": 20,
+  "visualize": false,
+  "no_timestamp": false
+}
