@@ -196,7 +196,7 @@ if __name__ == "__main__":
     # Quick test
     print("Testing StockSequenceDataset...")
     
-    from models.data_utils import StockDataLoader, get_default_split_dates
+    from utils.data_utils import StockDataLoader, get_default_split_dates
     
     # Load data
     loader = StockDataLoader()

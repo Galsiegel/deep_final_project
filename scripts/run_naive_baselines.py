@@ -17,14 +17,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 import pandas as pd
 import numpy as np
-from models.data_utils import StockDataLoader, get_default_split_dates
+from utils.data_utils import StockDataLoader, get_default_split_dates
 from models.naive_baselines import (
     PersistencePredictor,
     MovingAveragePredictor,
     LinearTrendPredictor
 )
-from models.evaluation import BaselineEvaluator, RegressionMetrics, DirectionalAccuracy
-from models.visualization import StockVisualizer
+from utils.evaluation import BaselineEvaluator, RegressionMetrics, DirectionalAccuracy
+from utils.visualization import StockVisualizer
 import argparse
 import json
 from datetime import datetime

@@ -20,10 +20,10 @@ from datetime import datetime
 import json
 import numpy as np
 
-from models.data_utils import StockDataLoader, get_default_split_dates
-from models.dataset import StockSequenceDataset, save_scalers
+from utils.data_utils import StockDataLoader, get_default_split_dates
+from utils.dataset import StockSequenceDataset, save_scalers
 from models.classification_model import StockClassificationModel
-from models.trainer import Trainer
+from utils.trainer import Trainer
 
 
 def load_config(config_path: str = 'configs/classification.yaml') -> dict:

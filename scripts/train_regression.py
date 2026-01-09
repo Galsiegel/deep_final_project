@@ -20,10 +20,10 @@ from datetime import datetime
 import json
 import numpy as np
 
-from models.data_utils import StockDataLoader, get_default_split_dates
-from models.dataset import StockSequenceDataset, save_scalers
+from utils.data_utils import StockDataLoader, get_default_split_dates
+from utils.dataset import StockSequenceDataset, save_scalers
 from models.regression_model import StockRegressionModel
-from models.trainer import Trainer
+from utils.trainer import Trainer
 
 
 def load_config(config_path: str = 'configs/regression.yaml') -> dict:
@@ -218,7 +218,7 @@ def main(args):
         print("EVALUATING ON TEST SET")
         print("="*80)
         
-        from models.dataset import load_scalers
+        from utils.dataset import load_scalers
         
         # Create test dataset
         test_dataset = StockSequenceDataset(

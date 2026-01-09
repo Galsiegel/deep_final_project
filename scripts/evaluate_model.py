@@ -21,8 +21,8 @@ import json
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
 
-from models.data_utils import StockDataLoader
-from models.dataset import StockSequenceDataset, load_scalers
+from utils.data_utils import StockDataLoader
+from utils.dataset import StockSequenceDataset, load_scalers
 from models.regression_model import StockRegressionModel
 from models.classification_model import StockClassificationModel
 
