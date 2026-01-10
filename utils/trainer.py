@@ -257,7 +257,7 @@ class Trainer:
     
     def load_checkpoint(self, filepath: Path):
         """Load model checkpoint."""
-        checkpoint = torch.load(filepath, map_location=self.device)
+        checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -309,13 +309,18 @@ class Trainer:
             # Print epoch summary
             self._print_epoch_summary(train_metrics, val_metrics)
             
-            # Save checkpoints
-            self._save_checkpoints(val_metrics)
-            
-            # Early stopping check
+            # Early stopping check (BEFORE updating best_val_loss in checkpoints)
             if self._check_early_stopping(val_metrics):
                 print(f"\nEarly stopping triggered after {self.current_epoch} epochs")
+                # Save final checkpoint before stopping
+                self.save_checkpoint(
+                    self.checkpoint_dir / 'last.pth',
+                    val_metrics
+                )
                 break
+            
+            # Save checkpoints (this updates self.best_val_loss)
+            self._save_checkpoints(val_metrics)
         
         print("\nTraining complete!")
         print(f"Best val_loss: {self.best_val_loss:.4f}")
