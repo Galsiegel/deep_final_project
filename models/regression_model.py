@@ -49,23 +49,28 @@ class StockRegressionModel(nn.Module):
         )
         
         # Regression head: predict single value
-        self.head = nn.Linear(fc_hidden_size, 1)
+        # Input: GRU features + opening price (fc_hidden_size + 1)
+        self.head = nn.Linear(fc_hidden_size + 1, 1)
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, day_open: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.
         
         Args:
-            x: Input tensor [batch, seq_len, input_size]
+            x: Input tensor [batch, seq_len, input_size] - historical OHLCV
+            day_open: Opening price tensor [batch, 1] - day i's opening
             
         Returns:
             Predicted prices [batch, 1]
         """
         # Encode sequence
-        features = self.encoder(x)
+        features = self.encoder(x)  # [batch, fc_hidden_size]
+        
+        # Concatenate GRU features with opening price
+        combined = torch.cat([features, day_open], dim=1)  # [batch, fc_hidden_size + 1]
         
         # Predict price
-        output = self.head(features)
+        output = self.head(combined)
         
         return output
     
@@ -93,9 +98,11 @@ if __name__ == "__main__":
     batch_size = 16
     seq_len = 10
     x = torch.randn(batch_size, seq_len, 5)
+    day_open = torch.randn(batch_size, 1)
     
-    output = model(x)
+    output = model(x, day_open)
     print(f"Input shape: {x.shape}")
+    print(f"Day open shape: {day_open.shape}")
     print(f"Output shape: {output.shape}")
     
     assert output.shape == (batch_size, 1), "Output shape mismatch"

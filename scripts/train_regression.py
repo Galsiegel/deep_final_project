@@ -144,9 +144,9 @@ def main(args):
     )
     
     print("\n4. Creating model...")
-    # For regression, we add day i's opening price as an extra feature
-    # So input_size = len(features) + 1
-    input_size = len(config['data']['features']) + 1
+    # Input size is just the base features (OHLCV)
+    # Day i's opening price is passed separately and concatenated after GRU
+    input_size = len(config['data']['features'])
     
     model = StockRegressionModel(
         input_size=input_size,
@@ -157,7 +157,7 @@ def main(args):
         fc_hidden_size=config['model']['fc_hidden_size']
     )
     
-    print(f"  Input features: {len(config['data']['features'])} base + 1 (day i's open) = {input_size}")
+    print(f"  Input features: {input_size} (OHLCV) + day i's open (passed separately)")
     
     model = model.to(device)
     print(f"  Model parameters: {model.get_num_parameters():,}")
@@ -258,9 +258,10 @@ def main(args):
         all_targets = []
         
         with torch.no_grad():
-            for X, y in test_loader:
-                X, y = X.to(device), y.to(device)
-                outputs = model(X)
+            for batch in test_loader:
+                X, day_open, y = batch
+                X, day_open, y = X.to(device), day_open.to(device), y.to(device)
+                outputs = model(X, day_open)
                 all_preds.extend(outputs.cpu().numpy())
                 all_targets.extend(y.cpu().numpy())
         

@@ -94,12 +94,14 @@ class Trainer:
         # Progress bar
         pbar = tqdm(self.train_loader, desc=f'Epoch {self.current_epoch} [Train]')
         
-        for batch_idx, (X, y) in enumerate(pbar):
-            X, y = X.to(self.device), y.to(self.device)
+        for batch_idx, batch in enumerate(pbar):
+            # Unpack batch (now returns 3 values: X, day_open, y)
+            X, day_open, y = batch
+            X, day_open, y = X.to(self.device), day_open.to(self.device), y.to(self.device)
             
             # Forward pass
             self.optimizer.zero_grad()
-            outputs = self.model(X)
+            outputs = self.model(X, day_open)
             
             # Calculate loss
             if self.task == 'regression':
@@ -159,11 +161,13 @@ class Trainer:
         with torch.no_grad():
             pbar = tqdm(self.val_loader, desc=f'Epoch {self.current_epoch} [Val]')
             
-            for X, y in pbar:
-                X, y = X.to(self.device), y.to(self.device)
+            for batch in pbar:
+                # Unpack batch (now returns 3 values: X, day_open, y)
+                X, day_open, y = batch
+                X, day_open, y = X.to(self.device), day_open.to(self.device), y.to(self.device)
                 
                 # Forward pass
-                outputs = self.model(X)
+                outputs = self.model(X, day_open)
                 
                 # Calculate loss
                 if self.task == 'regression':

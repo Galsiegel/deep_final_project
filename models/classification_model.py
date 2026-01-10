@@ -58,50 +58,57 @@ class StockClassificationModel(nn.Module):
         )
         
         # Classification head: predict class logits
-        self.head = nn.Linear(fc_hidden_size, num_classes)
+        # Input: GRU features + opening price (fc_hidden_size + 1)
+        self.head = nn.Linear(fc_hidden_size + 1, num_classes)
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, day_open: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.
         
         Args:
-            x: Input tensor [batch, seq_len, input_size]
+            x: Input tensor [batch, seq_len, input_size] - historical OHLCV
+            day_open: Opening price tensor [batch, 1] - day i+1's opening
             
         Returns:
             Class logits [batch, num_classes]
         """
         # Encode sequence
-        features = self.encoder(x)
+        features = self.encoder(x)  # [batch, fc_hidden_size]
+        
+        # Concatenate GRU features with opening price
+        combined = torch.cat([features, day_open], dim=1)  # [batch, fc_hidden_size + 1]
         
         # Predict class logits
-        logits = self.head(features)
+        logits = self.head(combined)
         
         return logits
     
-    def predict_class(self, x: torch.Tensor) -> torch.Tensor:
+    def predict_class(self, x: torch.Tensor, day_open: torch.Tensor) -> torch.Tensor:
         """
         Predict class labels (argmax of logits).
         
         Args:
             x: Input tensor [batch, seq_len, input_size]
+            day_open: Opening price tensor [batch, 1]
             
         Returns:
             Predicted classes [batch]
         """
-        logits = self.forward(x)
+        logits = self.forward(x, day_open)
         return torch.argmax(logits, dim=1)
     
-    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
+    def predict_proba(self, x: torch.Tensor, day_open: torch.Tensor) -> torch.Tensor:
         """
         Predict class probabilities (softmax of logits).
         
         Args:
             x: Input tensor [batch, seq_len, input_size]
+            day_open: Opening price tensor [batch, 1]
             
         Returns:
             Class probabilities [batch, num_classes]
         """
-        logits = self.forward(x)
+        logits = self.forward(x, day_open)
         return torch.softmax(logits, dim=1)
     
     def get_num_parameters(self) -> int:
@@ -129,12 +136,14 @@ if __name__ == "__main__":
     batch_size = 16
     seq_len = 10
     x = torch.randn(batch_size, seq_len, 5)
+    day_open = torch.randn(batch_size, 1)
     
-    logits = model(x)
-    probs = model.predict_proba(x)
-    preds = model.predict_class(x)
+    logits = model(x, day_open)
+    probs = model.predict_proba(x, day_open)
+    preds = model.predict_class(x, day_open)
     
     print(f"Input shape: {x.shape}")
+    print(f"Day open shape: {day_open.shape}")
     print(f"Logits shape: {logits.shape}")
     print(f"Probs shape: {probs.shape}")
     print(f"Predictions shape: {preds.shape}")

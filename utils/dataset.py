@@ -62,6 +62,7 @@ class StockSequenceDataset(Dataset):
         # Process data
         self.sequences = []
         self.targets = []
+        self.opening_prices = []  # Store day i's (or i+1's) opening price separately
         self.ticker_indices = []  # Track which ticker each sequence belongs to
         
         # Process each ticker separately
@@ -96,28 +97,31 @@ class StockSequenceDataset(Dataset):
                 if task == 'regression':
                     # Predict day i's close from:
                     # - Days [i-lookback, i-1] with full OHLCV (lookback days of history)
-                    # - Day i's opening price (as an extra feature on each timestep)
+                    # - Day i's opening price (passed separately, not in sequence)
                     
                     # Get full historical sequence
                     seq = ticker_data[features].iloc[i-lookback:i].values  # [lookback, num_features]
                     
-                    # Add day i's opening price as an additional feature to each timestep
-                    # Shape: [lookback, num_features] -> [lookback, num_features + 1]
+                    # Store day i's opening price separately (normalized)
                     day_i_open = ticker_data['open'].iloc[i]
-                    day_i_open_column = np.full((lookback, 1), day_i_open)
-                    seq = np.hstack([seq, day_i_open_column])
                     
                     target = ticker_data['close'].iloc[i]
                     
                 elif task == 'classification':
-                    # Get sequence of historical data
-                    seq = ticker_data[features].iloc[i-lookback:i].values
+                    # Predict day i+1's direction from:
+                    # - Days [i-lookback+1, i] with full OHLCV (N days of history)
+                    # - Day i+1's opening price (passed separately, not in sequence)
                     
-                elif task == 'classification':
-                    # Calculate NEXT-DAY % return and convert to class
-                    # Today's close (end of input sequence)
+                    # Get full historical sequence: last N days including today
+                    seq = ticker_data[features].iloc[i-lookback+1:i+1].values  # [lookback, num_features]
+                    
+                    # Store day i+1's opening price separately (normalized)
+                    day_i_plus_1_open = ticker_data['open'].iloc[i+1]
+                    
+                    # Calculate day i+1's % return and convert to class
+                    # Today's close (day i)
                     today_close = ticker_data['close'].iloc[i]  # Already normalized
-                    # Tomorrow's close (what we want to predict)
+                    # Tomorrow's close (day i+1 - what we want to predict)
                     tomorrow_close = ticker_data['close'].iloc[i+1]  # Already normalized
                     
                     # Denormalize to calculate actual % return
@@ -135,7 +139,9 @@ class StockSequenceDataset(Dataset):
                     # Convert to class
                     target = self._return_to_class(pct_return)
                 
+                # Store sequence, opening price, and target
                 self.sequences.append(seq)
+                self.opening_prices.append(day_i_open if task == 'regression' else day_i_plus_1_open)
                 self.targets.append(target)
                 self.ticker_indices.append(ticker)
     
@@ -153,22 +159,24 @@ class StockSequenceDataset(Dataset):
     def __len__(self) -> int:
         return len(self.sequences)
     
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get one sample.
         
         Returns:
-            X: [lookback, num_features] tensor
+            X: [lookback, num_features] tensor (historical OHLCV)
+            day_open: scalar tensor (day i's or i+1's opening price)
             y: scalar tensor (regression) or class index (classification)
         """
         X = torch.FloatTensor(self.sequences[idx])
+        day_open = torch.FloatTensor([self.opening_prices[idx]])
         
         if self.task == 'regression':
             y = torch.FloatTensor([self.targets[idx]])
         else:  # classification
             y = torch.LongTensor([self.targets[idx]])[0]  # CrossEntropy expects class index
         
-        return X, y
+        return X, day_open, y
     
     def get_scalers(self) -> Dict[str, StandardScaler]:
         """Return fitted scalers for saving."""

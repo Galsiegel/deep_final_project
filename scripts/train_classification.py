@@ -151,8 +151,12 @@ def main(args):
     )
     
     print("\n4. Creating model...")
+    # Input size is just the base features (OHLCV)
+    # Day i+1's opening price is passed separately and concatenated after GRU
+    input_size = len(config['data']['features'])
+    
     model = StockClassificationModel(
-        input_size=len(config['data']['features']),
+        input_size=input_size,
         hidden_size=config['model']['hidden_size'],
         num_layers=config['model']['num_layers'],
         num_classes=config['classification']['num_classes'],
@@ -160,6 +164,8 @@ def main(args):
         dropout_fc=config['model']['dropout_fc'],
         fc_hidden_size=config['model']['fc_hidden_size']
     )
+    
+    print(f"  Input features: {input_size} (OHLCV) + day i+1's open (passed separately)")
     
     model = model.to(device)
     print(f"  Model parameters: {model.get_num_parameters():,}")
@@ -266,9 +272,10 @@ def main(args):
         all_targets = []
         
         with torch.no_grad():
-            for X, y in test_loader:
-                X, y = X.to(device), y.to(device)
-                outputs = model(X)
+            for batch in test_loader:
+                X, day_open, y = batch
+                X, day_open, y = X.to(device), day_open.to(device), y.to(device)
+                outputs = model(X, day_open)
                 pred_classes = torch.argmax(outputs, dim=1)
                 all_preds.extend(pred_classes.cpu().numpy())
                 all_targets.extend(y.cpu().numpy())
