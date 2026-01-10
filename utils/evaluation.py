@@ -202,6 +202,9 @@ class BaselineEvaluator:
         df = df.copy()
         df['next_day_actual'] = df.groupby('ticker')[actual_col].shift(-1)
         
+        # Get previous day prices for directional accuracy
+        df['prev_day_actual'] = df.groupby('ticker')[actual_col].shift(1)
+        
         # Calculate regression metrics
         metrics = RegressionMetrics.calculate(
             df['next_day_actual'].values,
@@ -209,10 +212,11 @@ class BaselineEvaluator:
         )
         
         # Calculate directional accuracy
+        # Compare direction from yesterday to tomorrow (actual) vs yesterday to prediction
         dir_acc = DirectionalAccuracy.calculate(
             df['next_day_actual'].values,
             df[pred_col].values,
-            df[actual_col].values
+            df['prev_day_actual'].values  # Use previous day, not current day
         )
         metrics['directional_accuracy'] = dir_acc
         

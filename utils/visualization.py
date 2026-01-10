@@ -2,6 +2,8 @@
 Visualization utilities for stock predictions and model evaluation.
 """
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for saving figures
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -57,8 +59,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_predictions_vs_actual(
         self,
@@ -113,8 +117,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_prediction_errors(
         self,
@@ -153,8 +159,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_metrics_comparison(
         self,
@@ -197,8 +205,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_directional_accuracy(
         self,
@@ -236,8 +246,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_returns_distribution(
         self,
@@ -275,8 +287,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def plot_class_distribution(
         self,
@@ -317,8 +331,10 @@ class StockVisualizer:
         
         if save_name:
             self._save_fig(save_name)
+        else:
+            plt.show()
         
-        plt.show()
+        plt.close()
     
     def _save_fig(self, filename: str):
         """Save current figure to file."""

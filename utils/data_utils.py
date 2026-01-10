@@ -55,36 +55,44 @@ class StockDataLoader:
         
         all_data = []
         for csv_file in csv_files:
-            ticker = self._extract_ticker(csv_file.name)
-            df = pd.read_csv(csv_file)
-            
-            # Clean and standardize columns
-            df = df.rename(columns={
-                'Date': 'date',
-                'Open': 'open',
-                'High': 'high',
-                'Low': 'low',
-                'Close': 'close',
-                'Volume': 'volume'
-            })
-            
-            # Parse dates and remove timezone info for consistency
-            df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
-            
-            # Add ticker column
-            df['ticker'] = ticker
-            
-            # Select relevant columns
-            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'ticker']]
-            
-            # Remove any rows with missing values
-            df = df.dropna()
-            
-            # Sort by date
-            df = df.sort_values('date').reset_index(drop=True)
-            
-            all_data.append(df)
-            self.tickers.append(ticker)
+            try:
+                ticker = self._extract_ticker(csv_file.name)
+                df = pd.read_csv(csv_file)
+                
+                # Clean and standardize columns
+                df = df.rename(columns={
+                    'Date': 'date',
+                    'Open': 'open',
+                    'High': 'high',
+                    'Low': 'low',
+                    'Close': 'close',
+                    'Volume': 'volume'
+                })
+                
+                # Parse dates and remove timezone info for consistency
+                df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
+                
+                # Add ticker column
+                df['ticker'] = ticker
+                
+                # Select relevant columns
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'ticker']]
+                
+                # Remove any rows with missing values
+                df = df.dropna()
+                
+                # Sort by date
+                df = df.sort_values('date').reset_index(drop=True)
+                
+                all_data.append(df)
+                self.tickers.append(ticker)
+                
+            except Exception as e:
+                print(f"ERROR loading {csv_file.name} ({ticker}): {e}")
+                if 'df' in locals():
+                    print(f"  Columns found: {df.columns.tolist()}")
+                    print(f"  After rename attempt: {df.columns.tolist()}")
+                continue  # Skip this file and continue with others
         
         self.data = pd.concat(all_data, ignore_index=True)
         print(f"Loaded {len(self.data)} records for {len(self.tickers)} tickers")

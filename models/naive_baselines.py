@@ -42,8 +42,12 @@ class PersistencePredictor(NaivePredictor):
     
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """Predict tomorrow = today."""
+        # df is a DataFrame with stock data containing columns like 'ticker', 'close', etc.
+        # We create a copy to avoid modifying the original DataFrame
         df = df.copy()
-        df['prediction'] = df.groupby('ticker')['close'].shift(1)
+        # Persistence: today's close price is our prediction for tomorrow's close
+        # No shift needed - we're predicting t+1 from t
+        df['prediction'] = df['close']
         return df
 
 
@@ -66,7 +70,7 @@ class MovingAveragePredictor(NaivePredictor):
         )
         return df
 
-
+#TODO:: review this thouroghly
 class LinearTrendPredictor(NaivePredictor):
     """
     Linear Trend Extrapolation Baseline.
