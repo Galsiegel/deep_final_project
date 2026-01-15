@@ -22,44 +22,36 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # --- MODEL DEFINITION (Modular Approach - Tutorial 05 & 07) ---
 
-class StockLSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, output_dim=1, dropout=0.2):
-        """
-        Stacked LSTM for Binary Classification (Up/Down)
-        input_dim: Number of features (e.g., OHLCV = 5)
-        hidden_dim: Number of neurons in LSTM hidden layer
-        num_layers: Number of stacked LSTM layers
-        """
-        super(StockLSTM, self).__init__()
+class StockAttentionLSTM(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers, output_dim=3, dropout=0.3):
+        super(StockAttentionLSTM, self).__init__()
 
-        # 1. The LSTM Engine (From Tutorial 07)
-        # batch_first=True means input shape is (batch, seq_len, features)
-        self.lstm = nn.LSTM(
-            input_dim,
-            hidden_dim,
-            num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0
-        )
+        # 1. Sequential Engine (Tutorial 07)
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=dropout)
 
-        # 2. Regularization (From Tutorial 08)
+        # 2. Multi-Head Attention (Transformer-style)
+        # embed_dim must match LSTM hidden_dim
+        self.attention = nn.MultiheadAttention(embed_dim=hidden_dim, num_heads=4, batch_first=True)
+
+        # 3. Normalization and Residual (Tutorial 05/08 Good Practice)
+        self.layernorm = nn.LayerNorm(hidden_dim)
+
+        # 4. Classification Head
+        self.fc = nn.Linear(hidden_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
 
-        # 3. Fully Connected Classification Head (From Tutorial 05)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-        # Sigmoid maps output to [0, 1] for binary classification
-        self.sigmoid = nn.Sigmoid()
-
     def forward(self, x):
-        # x shape: [batch, seq_len, features]
-        # Tutorial 07: LSTM returns (output, (h_n, c_n))
-        lstm_out, (h_n, c_n) = self.lstm(x)
+        # x: [batch, seq_len, features]
+        lstm_out, _ = self.lstm(x)
 
-        # We take the output of the VERY LAST time step (the "conclusion" of the sequence)
-        last_time_step_out = lstm_out[:, -1, :]
+        # Self-Attention: Query=lstm_out, Key=lstm_out, Value=lstm_out
+        attn_out, _ = self.attention(lstm_out, lstm_out, lstm_out)
 
-        # Pass through classification head
-        out = self.dropout(last_time_step_out)
-        out = self.fc(out)
-        return self.sigmoid(out)
+        # Residual Connection (Tutorial 05 Skip Connection) + LayerNorm
+        # This prevents vanishing gradients in deeper stacks
+        x = self.layernorm(lstm_out + attn_out)
+
+        # Take the last time step for classification (Many-to-One)
+        last_step = x[:, -1, :]
+        out = self.dropout(last_step)
+        return self.fc(out)
