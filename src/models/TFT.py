@@ -3,8 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# ==========================================
+# 1. Custom SOTA Loss: Focal + Directional
+# ==========================================
 class TFTLoss(nn.Module):
-    def __init__(self, alpha=None, gamma=1.5, directional_weight=0.6):
+    def __init__(self, alpha=None, gamma=1.5, directional_weight=0.5):
         super(TFTLoss, self).__init__()
         self.gamma = gamma
         self.directional_weight = directional_weight
@@ -13,16 +16,25 @@ class TFTLoss(nn.Module):
     def forward(self, logits, targets):
         ce_loss = self.ce(logits, targets)
         pt = torch.exp(-ce_loss)
+
+        # Focal Loss to handle hard samples
         focal_loss = ((1 - pt) ** self.gamma * ce_loss).mean()
+
         probs = F.softmax(logits, dim=1)
         pred_labels = torch.argmax(probs, dim=1)
+
+        # Directional Penalty (dw): Significant penalty for full reversals
         opposite_mask = ((targets == 2) & (pred_labels == 0)) | ((targets == 0) & (pred_labels == 2))
         directional_penalty = opposite_mask.float().mean() * self.directional_weight
+
         return focal_loss + directional_penalty
 
 
+# ==========================================
+# 2. Gated Residual Network (GRN)
+# ==========================================
 class GRN(nn.Module):
-    """ Gated Residual Network with Pre-Normalization """
+    """ Gated Residual Network with skip-connection projection fix """
 
     def __init__(self, input_dim, hidden_dim, output_dim, dropout=0.1):
         super(GRN, self).__init__()
@@ -32,23 +44,34 @@ class GRN(nn.Module):
         self.gate = nn.Linear(input_dim, output_dim)
         self.dropout = nn.Dropout(dropout)
 
+        # THE FIX: If dimensions don't match, use a linear layer to project the residual
+        if input_dim != output_dim:
+            self.skip = nn.Linear(input_dim, output_dim)
+        else:
+            self.skip = nn.Identity()
+
     def forward(self, x):
         h = self.ln(x)
         h = F.elu(self.fc1(h))
         h = self.fc2(h)
         h = self.dropout(h)
         g = torch.sigmoid(self.gate(x))
-        return x + g * h
+        # Now shapes match: projected_x (output_dim) + gated_h (output_dim)
+        return self.skip(x) + g * h
 
 
+# ==========================================
+# 3. Variable Selection Network (VSN)
+# ==========================================
 class VSN(nn.Module):
-    """ Variable Selection Network: Dynamically weights each of the 7 features """
-
     def __init__(self, input_dim, hidden_dim, dropout=0.1):
         super(VSN, self).__init__()
+        # 6 individual GRNs for feature embeddings
         self.feature_grns = nn.ModuleList([
             GRN(1, hidden_dim, hidden_dim, dropout) for _ in range(input_dim)
         ])
+
+        # GRN to calculate the 6 selection weights
         self.flattened_grn = GRN(input_dim * hidden_dim, hidden_dim, input_dim, dropout)
         self.softmax = nn.Softmax(dim=-1)
 
@@ -60,20 +83,29 @@ class VSN(nn.Module):
             feature_outputs.append(self.feature_grns[i](f_in))
 
         combined = torch.cat(feature_outputs, dim=-1)
+        # Selects which of the 6 features are important at this time step
         weights = self.softmax(self.flattened_grn(combined)).unsqueeze(-1)
+
         stacked = torch.stack(feature_outputs, dim=2)
         return torch.sum(weights * stacked, dim=2)
 
 
+# ==========================================
+# 4. StockTFT Architecture
+# ==========================================
 class StockTFT(nn.Module):
-    def __init__(self, input_dim=7, hidden_dim=8, n_heads=4, output_dim=3, dropout=0.2, num_layers=1):
+    def __init__(self, input_dim=6, hidden_dim=128, n_heads=8, output_dim=3, dropout=0.2):
         super(StockTFT, self).__init__()
         self.vsn = VSN(input_dim, hidden_dim, dropout)
-        self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers=num_layers,
+
+        # Bidirectional LSTM captures temporal flow (Hidden 128 -> Embed 256)
+        self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers=1,
                             batch_first=True, bidirectional=True)
-        # embed_dim is hidden_dim * 2
+
+        # Multi-Head Attention (8 heads work perfectly for 256 embed_dim)
         self.mha = nn.MultiheadAttention(embed_dim=hidden_dim * 2, num_heads=n_heads,
                                          dropout=dropout, batch_first=True)
+
         self.post_attn_grn = GRN(hidden_dim * 2, hidden_dim, hidden_dim * 2, dropout=dropout)
         self.classifier = nn.Linear(hidden_dim * 2, output_dim)
 
