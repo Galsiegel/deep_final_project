@@ -36,5 +36,22 @@ This project uses financial news data from the Massive (formerly polygon.io) API
    export MASSIVE_API_KEY="your_api_key_here"
    ```
 
+# Secure PyTorch (Required for Transformers 2025/2026)
+torch>=2.8.0
+torchvision
+torchaudio
 
+# Transformers Compatibility Bridge
+tensorflow==2.15.0
+keras==2.15.0
+tf-keras==2.15.0
+
+# NLP & Processing
+transformers
+sentence-transformers
+pandas
+numpy
+tqdm
+requests
+matplotlib
 ```
