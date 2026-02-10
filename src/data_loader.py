@@ -92,7 +92,7 @@ class DataOrchestrator:
                 df.to_csv(path, index=False)
                 return True
         except Exception as e:
-            print(f"⚠️ Price Fetch Error [{ticker}]: {e}")
+            print(f"Warning: Price Fetch Error [{ticker}]: {e}")
         return False
 
     def fetch_earnings(self, ticker):
@@ -113,7 +113,7 @@ class DataOrchestrator:
                 df.to_csv(path, index=False)
                 return True
         except Exception as e:
-            print(f"⚠️ Earnings Fetch Error [{ticker}]: {e}")
+            print(f"Warning: Earnings Fetch Error [{ticker}]: {e}")
         return False
 
     def fetch_news(self, ticker):
@@ -173,4 +173,4 @@ class DataOrchestrator:
             if has_eodhd:
                 self.fetch_news(ticker)
 
-        print(f"\n🏁 Synchronization Complete. Data updated for {len(stocks_to_process)} tickers.")
+        print(f"\nSynchronization Complete. Data updated for {len(stocks_to_process)} tickers.")

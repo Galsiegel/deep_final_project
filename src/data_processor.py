@@ -71,7 +71,7 @@ class FeatureProcessor:
         e_path = self.raw_er_dir / f"{ticker}_ER.csv"
 
         if not p_path.exists():
-            print(f"⚠️ Price data missing for {ticker}. Skipping...")
+            print(f"Warning: Price data missing for {ticker}. Skipping...")
             return None
 
         df = pd.read_csv(p_path).dropna().reset_index(drop=True)
@@ -194,7 +194,7 @@ class FeatureProcessor:
         valid_dates = {d for d, count in date_counts.items() if count == len(active_stocks)}
         cube = sorted([s for s in all_samples if s['metadata']['date'] in valid_dates], key=lambda x: (x['metadata']['date'], x['static_id']))
         torch.save(cube, self.output_dir / "technical_ER_dataset.pt")
-        print(f"✅ Tech+ER Cube Saved: {len(cube)} samples.")
+        print(f"Tech+ER Cube Saved: {len(cube)} samples.")
 
     def generate_tech_er_news_dataset(self, stocks, dates, M, T, multiplier, news_threshold):
         """Fuses Technical + ER + News NLP into a 782-dim master dataset."""
@@ -205,7 +205,7 @@ class FeatureProcessor:
                 with open(p, 'rb') as f: news_counts.append((s, sum(1 for _ in f)))
 
         if not news_counts:
-            print("⚠️ No news data found. Skipping fused dataset.")
+            print("Warning: No news data found. Skipping fused dataset.")
             return
 
         top_stocks = sorted([x[0] for x in sorted(news_counts, key=lambda x: x[1], reverse=True)[:min(len(news_counts), news_threshold)]])
@@ -248,4 +248,4 @@ class FeatureProcessor:
         valid_dates = {d for d, count in date_counts.items() if count == len(top_stocks)}
         cube = sorted([s for s in all_fused if s['metadata']['date'] in valid_dates], key=lambda x: (x['metadata']['date'], x['static_id']))
         torch.save(cube, self.output_dir / "technical_ER_news_dataset.pt")
-        print(f"✅ Master Fused Dataset Saved: {len(cube)} samples.")
+        print(f"Master Fused Dataset Saved: {len(cube)} samples.")
