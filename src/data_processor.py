@@ -1,9 +1,10 @@
 """
 src/data_processor.py
 The 'Chef': Processes raw technical, earnings, and news data into ML-ready datasets.
-Saves two outputs:
+Saves three outputs:
 1. Technical + ER Dataset (13 features, Perfect Cube)
-2. Technical + ER + News Dataset (782 features, Top News-Heavy Stocks)
+2. Technical + ER + News Dataset (782 features, Top News-Heavy Stocks) [legacy]
+3. Dual-Path Dataset: x_tech[M,17] + x_emb[M,768] for the new TFT architecture
 """
 
 import json
@@ -249,3 +250,88 @@ class FeatureProcessor:
         cube = sorted([s for s in all_fused if s['metadata']['date'] in valid_dates], key=lambda x: (x['metadata']['date'], x['static_id']))
         torch.save(cube, self.output_dir / "technical_ER_news_dataset.pt")
         print(f"Master Fused Dataset Saved: {len(cube)} samples.")
+
+    # --- 4. Dual-Path Dataset Generation ---
+
+    def generate_dual_path_dataset(self, stocks, dates, M, T, multiplier, news_jsonl_path):
+        """
+        Generates a dataset with SEPARATE tensors for the dual-path TFT:
+          - x_tech: [M, 17] (13 technical + 4 sentiment features through VSN)
+          - x_emb:  [M, 768] (news embeddings through EmbeddingBranch)
+          - static_id: int (stock index)
+          - y: int (label: 0=Sell, 1=Neutral, 2=Buy)
+
+        Args:
+            stocks: List of ticker symbols
+            dates: dict with 'start' and 'end' date strings
+            M: Lookback window in trading days
+            T: Prediction horizon in trading days
+            multiplier: ATR multiplier for labeling
+            news_jsonl_path: Path to daily_news_features.jsonl
+        """
+        from src.sentiment_loader import SentimentFeatureLoader
+
+        loader = SentimentFeatureLoader(news_jsonl_path)
+        stocks = sorted(stocks)
+        v_min, v_max = self._calculate_global_vol_bounds(stocks)
+        all_samples, active_stocks = [], []
+
+        for ticker in tqdm(stocks, desc="Building dual-path dataset"):
+            df = self._process_stock_features(ticker, v_min, v_max)
+            if df is None:
+                continue
+            active_stocks.append(ticker)
+            ticker_id = len(active_stocks) - 1
+
+            for t in range(M - 1, len(df) - T):
+                row_date = df.iloc[t]['Date']
+                if row_date < pd.Timestamp(dates['start']) or row_date > pd.Timestamp(dates['end']):
+                    continue
+
+                # --- Technical features window [M, 13] ---
+                v_slice = df.iloc[t-(M-1):t+1]['LogV']
+                df_win = df.iloc[t-(M-1):t+1].copy()
+                df_win['LocalVolZ'] = (
+                    (df_win['LogV'] - v_slice.mean()) / (v_slice.std() + 1e-9)
+                ).clip(-3, 3) / 3.0
+
+                x_tech_base = df_win[self.feature_cols].values.astype(np.float32)  # [M, 13]
+
+                # --- Sentiment features window [M, 4] ---
+                x_sent = np.zeros((M, 4), dtype=np.float32)
+                for idx_w, idx_df in enumerate(range(t-(M-1), t+1)):
+                    date_str = df.iloc[idx_df]['Date'].strftime('%Y-%m-%d')
+                    x_sent[idx_w] = loader.get_sentiment(ticker, date_str)
+
+                # Concat: technical + sentiment = [M, 17]
+                x_tech = np.hstack([x_tech_base, x_sent])
+
+                # --- News embedding window [M, 768] ---
+                x_emb = np.zeros((M, 768), dtype=np.float32)
+                for idx_w, idx_df in enumerate(range(t-(M-1), t+1)):
+                    date_str = df.iloc[idx_df]['Date'].strftime('%Y-%m-%d')
+                    x_emb[idx_w] = loader.get_embedding(ticker, date_str)
+
+                all_samples.append({
+                    'x_tech': x_tech,       # [M, 17]
+                    'x_emb': x_emb,         # [M, 768]
+                    'static_id': ticker_id,
+                    'y': self._get_window_label(df, t, multiplier, T),
+                    'metadata': {
+                        'ticker': ticker,
+                        'date': row_date.strftime('%Y-%m-%d')
+                    }
+                })
+
+        # Perfect Cube: only dates where ALL stocks have data
+        date_counts = Counter([s['metadata']['date'] for s in all_samples])
+        valid_dates = {d for d, count in date_counts.items() if count == len(active_stocks)}
+        cube = sorted(
+            [s for s in all_samples if s['metadata']['date'] in valid_dates],
+            key=lambda x: (x['metadata']['date'], x['static_id'])
+        )
+
+        save_path = self.output_dir / "dual_path_dataset.pt"
+        torch.save(cube, save_path)
+        print(f"Dual-path dataset saved: {len(cube)} samples, "
+              f"{len(active_stocks)} stocks, x_tech=[M,17], x_emb=[M,768]")
