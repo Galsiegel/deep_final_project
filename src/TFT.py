@@ -85,14 +85,15 @@ class EmbeddingBranch(nn.Module):
     to produce a reduced-dimension representation.
     Input:  [Batch, Seq, 768]
     Output: [Batch, Seq, hidden_dim]
+
     """
 
     def __init__(self, embedding_dim=768, hidden_dim=64, dropout=0.1):
         super().__init__()
         self.fc1 = nn.Linear(embedding_dim, 256)
-        self.bn1 = nn.BatchNorm1d(256)
+        self.ln1 = nn.LayerNorm(256)
         self.fc2 = nn.Linear(256, hidden_dim)
-        self.bn2 = nn.BatchNorm1d(hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
         self.dropout = nn.Dropout(dropout)
         self.activation = nn.GELU()
 
@@ -101,24 +102,17 @@ class EmbeddingBranch(nn.Module):
         x: [Batch, Seq, 768]
         returns: [Batch, Seq, hidden_dim]
         """
-        batch, seq, _ = x.shape
-
-        # Reshape for BatchNorm: [Batch*Seq, Features]
-        x = x.reshape(batch * seq, -1)
-
         # Layer 1: 768 -> 256
         x = self.fc1(x)
-        x = self.bn1(x)
+        x = self.ln1(x)
         x = self.activation(x)
         x = self.dropout(x)
 
         # Layer 2: 256 -> hidden_dim
         x = self.fc2(x)
-        x = self.bn2(x)
+        x = self.ln2(x)
         x = self.activation(x)
 
-        # Reshape back: [Batch, Seq, hidden_dim]
-        x = x.reshape(batch, seq, -1)
         return x
 
 
@@ -311,6 +305,7 @@ class MasterStockDataset(Dataset):
             np.array([s['static_id'] for s in self.samples]),
             dtype=torch.long
         )
+        self.num_stocks = self.sid.max().item() + 1
 
     def __len__(self):
         return len(self.y)
